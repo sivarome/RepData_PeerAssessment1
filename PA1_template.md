@@ -25,53 +25,57 @@ The dataset is stored in a comma-separated-value (CSV) file and there are a tota
 
 ## Analysis  
 
-```{r, echo=FALSE, message=FALSE}
-library(dplyr)
-library(plyr)
-library(lubridate)
-library(lattice)
-```
+
 
 ### Loading and preprocessing the data  
 
 The data for this study can be downloaded from [here] (https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip). Below R code will download the file into a local zip file (activity.zip).  
 
-```{r Download_Data, message=FALSE, warning=FALSE}
 
+```r
 download.file ("https://d396qusza40orc.cloudfront.net/repdata_data_activity.zip", "activity.zip", method="curl")
-
 ```
 
 #### Loading the data  
 
 The activity data is loaded into a dataframe "activityRawData" using read.csv()  
 
-```{r Load_Data}
 
+```r
 unzip("activity.zip")
 activityRawData <- read.csv("activity.csv")
-
 ```
 
 The first 5 observations are shown below:  
-```{r Show_activityRawData, echo=FALSE}
-head(activityRawData,5)
+
+```
+##   steps       date interval
+## 1    NA 2012-10-01        0
+## 2    NA 2012-10-01        5
+## 3    NA 2012-10-01       10
+## 4    NA 2012-10-01       15
+## 5    NA 2012-10-01       20
 ```
 
 #### Processing the data  
 
 "interval" field is a numeric representation of the 5 minute window time of the day. Use this field to create a new variable called "time", by converting the numeric value into "HH:MM" format.  
 
-```{r Process_Data}
 
+```r
 activityRawProcessedData <- cbind(activityRawData, time=strptime(activityRawData$interval+10000, format="1%H%M"))
-
 ```
 
 Here are the first 5 records with the new variable.  
 
-```{r Show_activityRawProcessedData, echo=FALSE}
-head(activityRawProcessedData, 5)
+
+```
+##   steps       date interval                time
+## 1    NA 2012-10-01        0 2015-07-19 00:00:00
+## 2    NA 2012-10-01        5 2015-07-19 00:05:00
+## 3    NA 2012-10-01       10 2015-07-19 00:10:00
+## 4    NA 2012-10-01       15 2015-07-19 00:15:00
+## 5    NA 2012-10-01       20 2015-07-19 00:20:00
 ```
 
 
@@ -81,35 +85,31 @@ head(activityRawProcessedData, 5)
 
 Following R code calculates the total steps taken per day. The missing values in the dataset (NAs) are ignored at this stage.  
 
-```{r Total_StepsPerDay}
 
+```r
 stepsPerDay <- ddply(activityRawProcessedData[complete.cases(activityRawProcessedData),], .(date), summarize, avg_steps=sum(steps))
 
 names(stepsPerDay) <- c("Date","Steps")
-
 ```
 
 
 #### Histogram of the total number of steps taken each day  
 
-```{r 1_Histogram_RawData, echo=FALSE, fig.height=4, fig.width=7}
-hist(stepsPerDay$Steps, breaks=20, xlab="Steps", main="Total number of steps taken each day")
-```
+![plot of chunk 1_Histogram_RawData](figure/1_Histogram_RawData-1.png) 
 
 
 #### Mean and Median of the total number of steps taken per day  
 
 R code to calculate the Mean and Median of the total steps taken per day.  
 
-```{r calculate_MeanMedianRaw}
 
+```r
 meanTotalDailySteps <- mean(stepsPerDay$Steps)
 medianTotalDailySteps <- median(stepsPerDay$Steps)
-
 ```
 
-Mean of the total number of steps taken each day: **`r format(meanTotalDailySteps)`**  
-Medean of the total number of steps taken each day: **`r format(medianTotalDailySteps)`**  
+Mean of the total number of steps taken each day: **10766.19**  
+Medean of the total number of steps taken each day: **10765**  
  
  
 ### Average daily activity pattern  
@@ -117,34 +117,28 @@ Medean of the total number of steps taken each day: **`r format(medianTotalDaily
 #### Time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)  
 
 R code to calculate the average steps taken per time interval.  
-```{r Calculate_AvgStepsPerInterval}
 
+```r
 meanStepsPerInterval <- ddply(activityRawProcessedData[complete.cases(activityRawProcessedData),], .(time), summarize, avg_steps=mean(steps))
 
 names(meanStepsPerInterval) <- c("Interval","Steps")
-
 ```
 
 Time plot:
 
-```{r 2_TimePlot_StepsPerInterval, echo=FALSE, fig.height=4, fig.width=7}
-
-plot(meanStepsPerInterval, type="l", xlab="Steps", main="Average number of steps taken per time interval")
-
-```
+![plot of chunk 2_TimePlot_StepsPerInterval](figure/2_TimePlot_StepsPerInterval-1.png) 
 
 
 #### Finding the 5-minute interval containing maximum average number of steps.  
 
 R code to calculate the max interval.  
-```{r Calculate_MaxInterval}
 
+```r
 maxSteps <- max(meanStepsPerInterval$Steps)
 maxInterval <- meanStepsPerInterval[meanStepsPerInterval$Steps == maxSteps, 1]
-
 ```
 
-The 5 minute interval with maximum number of steps is **`r format(maxInterval, "%H:%M")`**  
+The 5 minute interval with maximum number of steps is **08:35**  
 
 
 ### Imputing missing values  
@@ -156,89 +150,97 @@ For this assignment, the strategy used will be to impute the missing values with
 #### Finding the total number of missing values in the dataset  
 
 Below code gives the count of missing values.
-```{r Find_MissingValues}
 
+```r
 activityNA <- activityRawProcessedData[is.na(activityRawProcessedData$steps),]
 
 totalNARows <- dim(activityNA)[1]
-
 ```
 
-There are **`r totalNARows`** missing values in the dataset.  
+There are **2304** missing values in the dataset.  
 
 #### Create a new dataset by imputing missing values with the mean of the interval.  
 
 Below R code imputes the missing values.  
-```{r imputeData}
 
+```r
 activityImputedData <- activityRawProcessedData %>%
   group_by(interval) %>%
   mutate(steps = ifelse(is.na(steps), 
                          mean(steps, na.rm = TRUE), 
                          steps))
-
 ```
  
 #### Histogram of the total number of steps taken each day  
 
 R code to calculate the total steps taken for each day, using the imputed data.  
-```{r summarize_imputedData}
 
+```r
 stepsPerDayImputed <- ddply(activityImputedData, .(date), summarize, total_steps=sum(steps))
 
 names(stepsPerDayImputed) <- c("Date","Steps")
-
 ```
 
-```{r 3_Histogram_ImputedData, echo=FALSE, fig.width=7, fig.height=4}
-hist(stepsPerDayImputed$Steps, breaks=20, xlab="Steps", main="Total number of steps taken each day")
-```
+![plot of chunk 3_Histogram_ImputedData](figure/3_Histogram_ImputedData-1.png) 
 
 
 R code to calculate the mean and median total number of steps taken per day using the imputed data.  
 
-```{r calculate_MeanMedianImputed}
+
+```r
 meanStepsPerDayImputed <- mean(stepsPerDayImputed$Steps)
 medianStepsPerDayImputed <- median(stepsPerDayImputed$Steps)
 ```
 
 After imputing missing values:  
-Mean steps per day: **`r format(meanStepsPerDayImputed)`**  
-Median steps per day: **`r format(medianStepsPerDayImputed)`**  
+Mean steps per day: **10766.19**  
+Median steps per day: **10766.19**  
 
 Before imputing missing values (calculated earlier)  
-Mean steps per day: **`r format(meanTotalDailySteps)`**  
-Medean steps per day: **`r format(medianTotalDailySteps)`**  
+Mean steps per day: **10766.19**  
+Medean steps per day: **10765**  
 
 
 ### Activity patterns between weekdays and weekends  
 
 #### Creating a new factor variable in the dataset with two levels -"weekday" and "weekend"€ indicating whether a given date is a weekday or weekend day.
 
-```{r create_Factor}
 
+```r
 activityFactoredData <- mutate(activityImputedData, day=wday(activityImputedData$date, label=TRUE, abbr=FALSE))
 
 activityFactoredData$WeekendFactor <- factor((activityFactoredData$day %in% c('Saturday', 'Sunday')), levels=c(TRUE, FALSE), labels=c('Weekend', 'Weekday'))
-
 ```
 
 First 10 rows with the new factor variable "WeekendFactor".  
-```{r show_activityFactoredData, echo=FALSE}
-head(activityFactoredData,10)
+
+```
+## Source: local data frame [10 x 6]
+## Groups: interval
+## 
+##      steps       date interval                time    day WeekendFactor
+## 1  37.3826 2012-10-01        0 2015-07-19 00:00:00 Monday       Weekday
+## 2  37.3826 2012-10-01        5 2015-07-19 00:05:00 Monday       Weekday
+## 3  37.3826 2012-10-01       10 2015-07-19 00:10:00 Monday       Weekday
+## 4  37.3826 2012-10-01       15 2015-07-19 00:15:00 Monday       Weekday
+## 5  37.3826 2012-10-01       20 2015-07-19 00:20:00 Monday       Weekday
+## 6  37.3826 2012-10-01       25 2015-07-19 00:25:00 Monday       Weekday
+## 7  37.3826 2012-10-01       30 2015-07-19 00:30:00 Monday       Weekday
+## 8  37.3826 2012-10-01       35 2015-07-19 00:35:00 Monday       Weekday
+## 9  37.3826 2012-10-01       40 2015-07-19 00:40:00 Monday       Weekday
+## 10 37.3826 2012-10-01       45 2015-07-19 00:45:00 Monday       Weekday
 ```
 
 #### Time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).  
 
 R code to calculate the average number of steps per time interval and factor.  
-```{r Final_Aggregation}
+
+```r
 activityFinalData <- ddply(activityFactoredData, .(time, WeekendFactor), summarize, avg=mean(steps))
 ```
 
 Panel plot:  
-```{r 4_Panelplot_weekdays_weekends, echo=FALSE, fig.width=7, fig.height=5}
-xyplot(avg ~ time | WeekendFactor, data = activityFinalData, type = "l", layout=c(1,2), ylab="Number of steps", xlab="Interval", main="Average number of steps taken per time interval")
-```
+![plot of chunk 4_Panelplot_weekdays_weekends](figure/4_Panelplot_weekdays_weekends-1.png) 
 
 Based on the plot we can observe that during weekends there is more activity from 12:00 noon and 18:00 hrs when compared with weekdays.  
 
